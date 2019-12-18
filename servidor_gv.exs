@@ -247,68 +247,75 @@ defmodule ServidorGV do
 
                   estadoNuevo
               end
+          end
 
-            {:obten_vista_valida, pid} ->
-              (IO.ANSI.blue() <> "ME PIDEN LA VISTA SIN MAS") |> IO.puts()
-              consistencia = estado_sistema.tentativa == estado_sistema.vista
-              send(pid, {:vista_tentativa, estado_sistema.tentativa, consistencia})
-              estado_sistema
+        {:obten_vista_valida, pid} ->
+          (IO.ANSI.blue() <> "ME PIDEN LA VISTA SIN MAS") |> IO.puts()
+          consistencia = estado_sistema.tentativa == estado_sistema.vista
+          send(pid, {:vista_tentativa, estado_sistema.tentativa, consistencia})
+          estado_sistema
 
-            :procesa_situacion_servidores ->
-              #lista_nodos = estado_sistema.resto_nodos
+        :procesa_situacion_servidores ->
+          # lista_nodos = estado_sistema.resto_nodos
 
-              estado =
-                if (length(estado_sistema.resto_nodos) > 0) do
-                  #lista_nodos = for i <- lista_nodos, do: {elem(i, 0), elem(i, 1) - 1}
-                  estado_sistema.resto_nodos = Map.map(estado_sistema.resto_nodos, fn {a,b} -> {a,b-1}, end)
+          estado =
+            if length(estado_sistema.resto_nodos) > 0 do
+              # lista_nodos = for i <- lista_nodos, do: {elem(i, 0), elem(i, 1) - 1}
+              estado_sistema = %{
+                estado_sistema
+                | resto_nodos: Enum.map(estado_sistema.resto_nodos, fn {a, b} -> {a, b - 1} end)
+              }
 
-                  lista_nodos = borrarInactivos(estado_sistema.resto_nodos)
+              lista_nodos = borrarInactivos(estado_sistema.resto_nodos)
 
-                  estado_sistema = %{estado_sistema | resto_nodos: lista_nodos}
+              estado_sistema = %{estado_sistema | resto_nodos: lista_nodos}
 
-                  primarioInactivo = estado_sistema.primario_latido == 0
-                  copiaInactivo = estado_sistema.copia_latido == 0
+              primarioInactivo = estado_sistema.primario_latido == 0
+              copiaInactivo = estado_sistema.copia_latido == 0
 
-                  estadoNuevo =
-                    cond do
-                      primarioInactivo && copiaInactivo ->
-                        (IO.ANSI.red() <> "##############PRIMARIO y COPIA CAIDO################")
-                        |> IO.puts()
+              estadoNuevo =
+                cond do
+                  primarioInactivo && copiaInactivo ->
+                    (IO.ANSI.red() <> "##############PRIMARIO y COPIA CAIDO################")
+                    |> IO.puts()
 
-                        vista_inicial()
+                    vista_inicial()
 
-                      primarioInactivo ->
-                        (IO.ANSI.pink() <> "### PRIMARIO CAIDO - COPIA VIVE ###") |> IO.puts()
-                        promocion(estado_sistema)
+                  primarioInactivo ->
+                    (IO.ANSI.pink() <> "### PRIMARIO CAIDO - COPIA VIVE ###") |> IO.puts()
+                    promocion(estado_sistema)
 
-                      copiaInactivo ->
-                        (IO.ANSI.pink() <> "### COPIA CAIDO - PRIMARIO VIVE ###") |> IO.puts()
-                        promocioncopia(estado_sistema)
-                    end
-                    estadoNuevo
-                else
-                    (IO.ANSI.red() <> "¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬NO TENGO NODOS EN EPERA ") |> IO.puts()
-                    estado_sistema
+                  copiaInactivo ->
+                    (IO.ANSI.pink() <> "### COPIA CAIDO - PRIMARIO VIVE ###") |> IO.puts()
+                    promocionCopia(estado_sistema)
                 end
-            estado
-        end
 
+              estadoNuevo
+            else
+              (IO.ANSI.red() <> "¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬NO TENGO NODOS EN EPERA ") |> IO.puts()
+              estado_sistema
+            end
+
+          estado
+      end
+
+    # end receive 
     bucle_recepcion(estado)
   end
 
-  defmodule Prueba2 do
-    def borrarInactivos([]) do
-      []
-    end
+  # end function
 
-    def borrarInactivos(lista) do
-      [uno | resto] = lista
+  defp borrarInactivos([]) do
+    []
+  end
 
-      if elem(uno, 1) == 0 do
-        borrarInactivos(resto)
-      else
-        [uno] ++ borrarInactivos(resto)
-      end
+  defp borrarInactivos(lista) do
+    [uno | resto] = lista
+
+    if elem(uno, 1) == 0 do
+      borrarInactivos(resto)
+    else
+      [uno] ++ borrarInactivos(resto)
     end
   end
 
@@ -338,8 +345,8 @@ defmodule ServidorGV do
     (IO.ANSI.blue() <> "CREANDO NUEVA COPIA") |> IO.puts()
 
     estado =
-      if estado.tentativa.primario != :undefined do
-        len = length(resto_nodos)
+      if estado_sist.tentativa.primario != :undefined do
+        len = length(estado_sist.resto_nodos)
 
         estadoNuevo =
           cond do
@@ -360,9 +367,9 @@ defmodule ServidorGV do
               # hay nodos para sustituir a copiao
               (IO.ANSI.blue() <> "SUSTITUYO A COPIA") |> IO.puts()
               # cojo la tupla
-              {nodoNuevo, latidosNuevo} = List.first(resto_nodos)
+              {nodoNuevo, _} = List.first(estado_sist.resto_nodos)
               # quito primer elemento de la lista porque será la copia
-              nuevaLista = List.delete_at(resto_nodos, 0)
+              nuevaLista = List.delete_at(estado_sist.resto_nodos, 0)
 
               %{
                 estado_sist
@@ -378,5 +385,7 @@ defmodule ServidorGV do
 
         estadoNuevo
       end
+
+    estado
   end
 end
