@@ -215,14 +215,37 @@ defmodule ServidorGV do
         bucle_recepcion(estado)
     end
     
-    defp promocion(estado) do
+    defp promocion(estado_sist) do
         IO.ANSI.blue <> "CREANDO NUEVO PRIMARIO" |> IO.puts
-        nuevoEstado = %{estado | vista_tentativa: %{estado.vista_tentativa | primario: estado.vista_tentativa.copia, copia: :undefined, primario_latido: estado.vista_tentativa.copia_latido}}
+        %{estado_sist | tentativa: %{estado_sist.tentativa | primario: estado_sist.tentativa.copia, copia: :undefined, primario_latido: estado_sist.tentativa.copia_latido}}
     end
 
-    defp promocionCopia(estado) do
+    defp promocionCopia(estado_sist) do
         IO.ANSI.blue <> "CREANDO NUEVA COPIA" |> IO.puts
-
+        estado = if estado.tentativa.primario == :undefined do
+                %{estado_sist | tentativa: %{estado_sist.tentativa | num_vista: (estado_sist.tentativa.num_vista + 1), copia: :undefined}}
+            else
+                len = length(resto_nodos)
+                estadoNuevo = cond do
+                    len == 0 ->
+                        #no hay nodos esperando
+                        IO.ANSI.green <> "NO HAY NODOS PARA SUSTITUIR A COPIA" |> IO.puts
+                        %{estado_sist | tentativa: %{estado_sist.tentativa | num_vista: (estado_sist.tentativa.num_vista + 1), copia: :undefined}}
+                    true ->
+                        #hay nodos para sustituir a copia
+                        IO.ANSI.blue <> "SUSTITUYO A COPIA" |> IO.puts
+                        #cojo la tupla
+                        {nodoNuevo, latidosNuevo} = List.first(resto_nodos)
+                        #quito primer elemento de la lista porque será la copia
+                        nuevaLista = List.delete_at(resto_nodos,0)
+                        %{estado_sist | tentativa: %{estado_sist.tentativa | num_vista: (estado_sist.tentativa.num_vista + 1), primario: estado_sist.tentativa.copia, copia: nodoNuevo},
+                                     primario_latido: estado_sistema.tentativa.copia_latido, 
+                                     copia_latido: @latidos_fallidos+1,
+                                    resto_nodos: nuevaLista}
+                end
+                estadoNuevo
+            end
+            
     end
 
 end
