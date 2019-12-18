@@ -85,6 +85,7 @@ defmodule ClienteGV do
 
   defp bucle_recepcion(nodo_servidor_gv) do
     receive do
+      #espera del test
       {:envia_latido, num_vista, pid_maestro} ->
         procesa_latido(nodo_servidor_gv, num_vista, pid_maestro)
 
