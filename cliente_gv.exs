@@ -58,7 +58,7 @@ defmodule ClienteGV do
     receive do
       {:vista_valida, vista, is_ok?} -> {vista, is_ok?}
     after
-      @tiempo_espera_de_respuesta ->
+      @tiempo_espera_de_respuesta -> IO.puts "entro aqui"
         {ServidorGV.vista_inicial(), false}
     end
   end
