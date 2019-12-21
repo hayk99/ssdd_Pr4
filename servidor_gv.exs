@@ -94,8 +94,8 @@ defmodule ServidorGV do
             0 ->
               estado =
                 if n_vista_latido == -1 do
+                  #caso en el que un nodo solo pide informacion del estado del sistema
                   consistencia = estado_sistema.tentativa == estado_sistema.vista
-
                   send(
                     {:cliente_gv, nodo_emisor},
                     {:vista_valida, estado_sistema.tentativa, consistencia}
@@ -178,6 +178,15 @@ defmodule ServidorGV do
                   %{estado | vista: estado.tentativa}
 
                 ##################################
+                n_vista_latido == -1 ->
+                  #caso en el que un nodo solo pide informacion del estado del sistema
+                  consistencia = estado_sistema.tentativa == estado_sistema.vista
+                  send(
+                    {:cliente_gv, nodo_emisor},
+                    {:vista_valida, estado_sistema.tentativa, consistencia}
+                  )
+
+                  estado_sistema
                 true ->
                   ((IO.ANSI.red() <>
                       "No deberia sacar este caso. \n Vista = 1, nodo: late con latido != 0 y no existe aun la copia" <>
@@ -278,6 +287,17 @@ defmodule ServidorGV do
                   )
 
                   estadoNuevo
+                  
+                n_vista_latido == -1 ->
+                  #caso en el que un nodo solo pide informacion del estado del sistema
+                  consistencia = estado_sistema.tentativa == estado_sistema.vista
+                  send(
+                    {:cliente_gv, nodo_emisor},
+                    {:vista_valida, estado_sistema.tentativa, consistencia}
+                  )
+
+                  estado_sistema
+
 
                 true ->
                   # Resto de casos

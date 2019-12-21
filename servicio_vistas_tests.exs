@@ -302,10 +302,8 @@ defmodule GestorVistasTest do
     ClienteGV.latido(c1, 0)
     # C2 PASA A COPIA
     ClienteGV.latido(c3, vista.num_vista + 1)
-    # PRIMARIO CONFIRMA CAMBIO
+    # PRIMARIO CONFIRMA VALIDADA
     comprobar_valida(c3, c3, c2, vista.num_vista + 1)
-    # CONFIRMAMOS VALIDADA
-    IO.puts("\tvalidada")
     # cae copia
     ClienteGV.latido(c2, 0)
     # {vista, _} = ClienteGV.latido(c3, vista.num_vista+3) 
