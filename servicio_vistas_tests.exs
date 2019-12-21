@@ -34,7 +34,7 @@ defmodule GestorVistasTest do
   end
 
   # Test 1 : No deberia haber primario
-  #@tag :deshabilitado
+  # @tag :deshabilitado
   test "No deberia haber primario", %{c1: c1} do
     IO.puts("Test 1: No deberia haber primario ...")
 
@@ -57,7 +57,7 @@ defmodule GestorVistasTest do
   end
 
   # Test 3 : primer nodo copia
- #@tag :deshabilitado
+  # @tag :deshabilitado
   test "Primer nodo copia", %{c1: c1, c2: c2} do
     IO.puts("Test 3: Primer nodo copia ...")
 
@@ -74,14 +74,14 @@ defmodule GestorVistasTest do
   end
 
   ## Test 4 : Después, Copia (C2) toma el relevo si Primario (C1) falla.
-  #@tag :deshabilitado
+  # @tag :deshabilitado
   test "Copia releva primario", %{c2: c2} do
     IO.puts("Test4 : copia toma relevo si primario falla ...")
 
     {vista, _} = ClienteGV.latido(c2, 2)
-    IO.puts "latido test done, nvista:#{vista.num_vista}"
+    IO.puts("latido test done, nvista:#{vista.num_vista}")
 
-    copia_releva_primario(c2,vista.num_vista, ServidorGV.latidos_fallidos() * 2)
+    copia_releva_primario(c2, vista.num_vista, ServidorGV.latidos_fallidos() * 2)
 
     comprobar_tentativa(c2, c2, :undefined, vista.num_vista + 1)
 
@@ -89,7 +89,7 @@ defmodule GestorVistasTest do
   end
 
   ## Test 5 : Nodo rearrancado (C1) se convierte en copia.
-  #@tag :deshabilitado
+  # @tag :deshabilitado
   test "Servidor rearrancado se conviert en copia", %{c1: c1, c2: c2} do
     IO.puts("Test 5: Servidor rearrancado se convierte en copia ...")
 
@@ -108,7 +108,7 @@ defmodule GestorVistasTest do
 
   ## Test 6 : C3 como nuevo nodo (en espera), después C2 cae como primario.
   ##          Resultado : copia (C1) pasa a primario y C3 pasa a nodo copia
-  #@tag :deshabilitado
+  # @tag :deshabilitado
   test "Servidor en espera se convierte en copia", %{c1: c1, c3: c3} do
     IO.puts("Test 6: Servidor en espera se convierte en copia ...")
 
@@ -129,7 +129,7 @@ defmodule GestorVistasTest do
 
   ## Test 7 : Primario rearrancado (C1) tratado como caido, debe considerarlo
   #           caido aunque envie latido, y es convertido en nodo en espera.
-  #@tag :deshabilitado
+  # @tag :deshabilitado
   test "Primario rearrancado tratado como caido", %{c1: c1, c3: c3} do
     IO.puts("Test 7: Primario rearrancado tratado como caido ...")
 
@@ -142,29 +142,29 @@ defmodule GestorVistasTest do
     comprobar_tentativa(c3, c3, c1, vista.num_vista)
   end
 
-
   ## Test 8 : Servidor de vistas espera a que primario confirme vista
   ##          pero este no lo hace.
   ##          Poner C3 como Primario, C1 como Copia, C2 para comprobar
   ##          - C3 no confirma vista en que es primario,
   ##          - Cae, pero C1 no es promocionado porque C3 no confimo !
   # primario_no_confirma_vista(C1, C2, C3),
- @tag :deshabilitado
+  # @tag :deshabilitado
   test "Primario no confirma vista", %{c1: c1, c2: c2, c3: c3} do
     IO.puts("Test8 : Primario no confirma vista...")
-   # no_confirmar_vista(c1,c2,c3)
+    primario_no_confirma_vista(c1, c2, c3)
+    IO.puts(" ... Superado")
   end
-
 
   ## Test 9 : Si anteriores servidores caen (Primario  y Copia),
   ##       un nuevo servidor sin inicializar no puede convertirse en primario.
   # sin_inicializar_no(C1, C2, C3),
-  @tag :deshabilitado
-  test "Snuevo nodo tras ambas caidas no es primario", %{c1: c1, c2: c2, c3: c3} do
+  # @tag :deshabilitado
+  test "Nuevo nodo tras ambas caidas no es primario", %{c1: c1} do
     IO.puts("Test9: Tras caida de primario y copia, el nuevo nodo no puede ser primario")
-    #sin_inicializar_no(c1, c2, c3)
+    sin_inicializar_no(c1, 0, ServidorGV.latidos_fallidos() * 2)
+    comprobar_tentativa(c1, :undefined, :undefined, 0)
+    IO.puts(" ... Superado")
   end
-
 
   # ------------------ FUNCIONES DE APOYO A TESTS ------------------------
 
@@ -292,6 +292,56 @@ defmodule GestorVistasTest do
     end
   end
 
+  defp primario_no_confirma_vista(c1, c2, c3) do
+    {vista, _} = ClienteGV.latido(c3, 7)
+    IO.puts("ESTADO: #{vista.primario}, #{vista.copia}, #{vista.num_vista}")
+    # ahora mismo--> PRIMARIO: C3 --- COPIA: C1 --- NUM_VISTA:7
+    # nuevo nodo en espera
+    ClienteGV.latido(c2, 0)
+    # hacemos que caiga nodo1, es decir, cae copia
+    ClienteGV.latido(c1, 0)
+    # C2 PASA A COPIA
+    ClienteGV.latido(c3, vista.num_vista + 1)
+    # PRIMARIO CONFIRMA CAMBIO
+    comprobar_valida(c3, c3, c2, vista.num_vista + 1)
+    # CONFIRMAMOS VALIDADA
+    IO.puts("\tvalidada")
+    # cae copia
+    ClienteGV.latido(c2, 0)
+    # {vista, _} = ClienteGV.latido(c3, vista.num_vista+3) 
+    # si hacemos esto-> priamrio:c3, copia:undefined, vista=9
+    # deberia hacer lo de arriba, pero no lo hacemos para no confirmar y validar, de esta forma como no 
+    # validamos en tentativa copia es undefined y en valida es c2
+    comprobar_tentativa(c3, c3, :undefined, vista.num_vista + 2)
+
+    # haremos que caiga el primario
+    primario_cae(c3, vista.num_vista + 2, ServidorGV.latidos_fallidos() * 2)
+    comprobar_tentativa(c3, :undefined, :undefined, 0)
+    # IO.puts "ESTADO: #{vista.primario}, #{vista.copia}, #{vista.num_vista}" 
+  end
+
+  defp primario_cae(_, _, 0), do: :fin
+
+  defp primario_cae(c3, num_vista, x) do
+    {vista, _} = ClienteGV.latido(c3, 0)
+
+    if vista.primario != :undefined or vista.copia != :undefined do
+      Process.sleep(ServidorGV.intervalo_latidos())
+      primario_cae(c3, num_vista, x - 1)
+    end
+  end
+
+  defp sin_inicializar_no(_, _, 0), do: :fin
+
+  defp sin_inicializar_no(c1, num_vista, x) do
+    {vista, _} = ClienteGV.latido(c1, 0)
+
+    if vista.primario != :undefined or vista.copia != :undefined do
+      Process.sleep(ServidorGV.intervalo_latidos())
+      sin_inicializar_no(c1, num_vista, x - 1)
+    end
+  end
+
   defp comprobar_tentativa(nodo_cliente, nodo_primario, nodo_copia, n_vista) do
     # Solo interesa vista tentativa
     {vista, _} = ClienteGV.latido(nodo_cliente, -1)
@@ -301,7 +351,6 @@ defmodule GestorVistasTest do
 
   defp comprobar_valida(nodo_cliente, nodo_primario, nodo_copia, n_vista) do
     {vista, _} = ClienteGV.obten_vista(nodo_cliente)
-
     comprobar(nodo_primario, nodo_copia, n_vista, vista)
 
     assert ClienteGV.primario(nodo_cliente) == nodo_primario
@@ -314,11 +363,4 @@ defmodule GestorVistasTest do
 
     assert vista.num_vista == n_vista
   end
-
-  defp comprobarUltimaValida(nodo_cliente, primario, copia, num_vista) do
-        {vista, _} = ClienteGV.obten_vista(nodo_cliente)
-
-        comprobar(primario, copia, num_vista, vista)
-    end
 end
-
