@@ -153,6 +153,20 @@ defmodule ServidorGV do
                   # reinicio latidos ya qu sigue vivo
                   %{estado_sistema | primario_latido: @latidos_fallidos + 1}
 
+                nodo_emisor == estado_sistema.tentativa.primario && n_vista_latido == 0 ->
+                  ((IO.ANSI.red() <> "antes de haber un nodo copia, primario cae") <>
+                     IO.ANSI.reset())
+                  |> IO.puts()
+                  estado_sistema = %{
+                    estado_sistema
+                    | tentativa: %{
+                      estado_sistema.tentativa
+                      | num_vista: 0,
+                        primario: :undefined
+                    },
+                  }
+                  estado_sistema
+
                 n_vista_latido == 0 ->
                   ((IO.ANSI.green() <> "El nodo que hace latido es nuevo") <> IO.ANSI.reset())
                   |> IO.puts()
@@ -174,10 +188,9 @@ defmodule ServidorGV do
 
                   send({:cliente_gv, nodo_emisor}, {:vista_tentativa, estado.tentativa, true})
                   ##################################
-                  # valido???
+                  # valido
                   %{estado | vista: estado.tentativa}
-
-                ##################################
+                  ##################################
                 n_vista_latido == -1 ->
                   #caso en el que un nodo solo pide informacion del estado del sistema
                   consistencia = estado_sistema.tentativa == estado_sistema.vista
@@ -201,7 +214,7 @@ defmodule ServidorGV do
 
               cond do
                 nodo_emisor == estado_sistema.tentativa.primario ->
-                  ((IO.ANSI.cyan() <> "late PRIMARIO #{nodo_emisor}" <> IO.ANSI.reset()) <>
+                  ((IO.ANSI.cyan() <> "late PRIMARIO #{nodo_emisor}, #{estado_sistema.vista.primario}, #{estado_sistema.vista.copia}, #{estado_sistema.vista.num_vista} y tent #{estado_sistema.tentativa.primario}, #{estado_sistema.tentativa.copia}, #{estado_sistema.tentativa.num_vista}" <> IO.ANSI.reset()) <>
                      IO.ANSI.reset())
                   |> IO.puts()
 
@@ -216,14 +229,14 @@ defmodule ServidorGV do
                         nodoPV = estado_sistema.vista.primario
                         nodoCV = estado_sistema.vista.copia
 
-                        ((IO.ANSI.red() <>
+                        ((IO.ANSI.yellow() <>
                             "\tPrim: #{nodoP}, Copia: #{nodoC}, len: #{
                               length(estado_sistema.resto_nodos)
                             }") <>
                            IO.ANSI.reset())
                         |> IO.puts()
 
-                        ((IO.ANSI.red() <> "\tVALIDOS -->Prim: #{nodoPV}, Copia: #{nodoCV}") <>
+                        ((IO.ANSI.yellow() <> "\tVALIDOS -->Prim: #{nodoPV}, Copia: #{nodoCV}") <>
                            IO.ANSI.reset())
                         |> IO.puts()
 
@@ -269,7 +282,7 @@ defmodule ServidorGV do
                         promocionCopia(estado_sistema)
 
                       true ->
-                        ((IO.ANSI.red() <> "*********COPIA NO CAIDO***********") <>
+                        ((IO.ANSI.blue() <> "*********COPIA NO CAIDO***********") <>
                            IO.ANSI.reset())
                         |> IO.puts()
 
@@ -306,11 +319,11 @@ defmodule ServidorGV do
                   nodoPV = estado_sistema.vista.primario
                   nodoCV = estado_sistema.vista.copia
 
-                  ((IO.ANSI.red() <> "RESTO DE CASSO \t Prim: #{nodoP}, Copia: #{nodoC}") <>
+                  ((IO.ANSI.yellow() <> "RESTO DE CASOS \t Prim: #{nodoP}, Copia: #{nodoC}") <>
                      IO.ANSI.reset())
                   |> IO.puts()
 
-                  ((IO.ANSI.red() <> "\t\t\tVALIDOS -->Prim: #{nodoPV}, Copia: #{nodoCV}") <>
+                  ((IO.ANSI.yellow() <> "\t\t\tVALIDOS -->Prim: #{nodoPV}, Copia: #{nodoCV}") <>
                      IO.ANSI.reset())
                   |> IO.puts()
 
@@ -322,6 +335,7 @@ defmodule ServidorGV do
 
                   estadoNuevo =
                     if n_vista_latido == 0 || nodoCV == nodoP do
+                      #late un nodo nuevo y además hay cambios en la tentativa respecto a la vista valida
                       ((IO.ANSI.green() <> "Registro nodo como espera") <> IO.ANSI.reset())
                       |> IO.puts()
 
@@ -336,25 +350,18 @@ defmodule ServidorGV do
 
                       estadoSiInactivos =
                         cond do
-                          copiaInactivo == true ->
-                            ((IO.ANSI.green() <> "Registro nodo y promocionCopia") <>
-                               IO.ANSI.reset())
-                            |> IO.puts()
-
-                            promocionCopia(estado_sistema)
-
-                          primarioInactivo == true && copiaInactivo == true ->
-                            ((IO.ANSI.green() <> "Registro nodo y promocion") <> IO.ANSI.reset())
-                            |> IO.puts()
-
-                            promocion(estado_sistema)
-
                           primarioInactivo == true ->
                             ((IO.ANSI.green() <> "Registro nodo y promocion") <> IO.ANSI.reset())
                             |> IO.puts()
 
                             promocion(estado_sistema)
 
+                          copiaInactivo == true -> #  && primarioInactivo==false 
+                            ((IO.ANSI.green() <> "Registro nodo y promocionCopia") <>
+                               IO.ANSI.reset())
+                            |> IO.puts()
+
+                            promocionCopia(estado_sistema)
                           true ->
                             estado_sistema
                         end
@@ -426,14 +433,14 @@ defmodule ServidorGV do
           primarioInactivo = estado_sistema.primario_latido == 0
           copiaInactivo = estado_sistema.copia_latido == 0
 
-          ((IO.ANSI.green() <>
-              "estadoPrimario: #{primarioInactivo} estadoCopia: #{copiaInactivo}") <>
-             IO.ANSI.reset())
-          |> IO.puts()
+          # ((IO.ANSI.green() <>
+          #     "estadoPrimario: #{primarioInactivo} estadoCopia: #{copiaInactivo}") <>
+          #    IO.ANSI.reset())
+          # |> IO.puts()
 
           estadoNuevo =
             cond do
-              primarioInactivo && copiaInactivo ->
+              primarioInactivo==true && copiaInactivo==true ->
                 ((IO.ANSI.red() <> "##############PRIMARIO y COPIA CAIDO################") <>
                    IO.ANSI.reset())
                 |> IO.puts()
@@ -445,16 +452,25 @@ defmodule ServidorGV do
                       | copia: :undefined,
                         primario: :undefined,
                         num_vista: 0
-                    }
+                    },
+                    vista: %{
+                      estado_sistema.vista 
+                      | copia: :undefined,
+                        primario: :undefined,
+                        num_vista: 0
+                    },
+                    primario_latido: 0,
+                    copia_latido: 0
                 }
+                #System.halt()
 
-              primarioInactivo ->
-                ((IO.ANSI.cyan() <> "### PRIMARIO CAIDO - COPIA VIVE ###") <> IO.ANSI.reset())
+              primarioInactivo==true && copiaInactivo == false ->
+                ((IO.ANSI.red() <> "### PRIMARIO CAIDO - COPIA VIVE ###") <> IO.ANSI.reset())
                 |> IO.puts()
 
                 promocion(estado_sistema)
 
-              copiaInactivo ->
+              copiaInactivo ==true && primarioInactivo == false->
                 ((IO.ANSI.cyan() <> "### COPIA CAIDO - PRIMARIO VIVE ###") <> IO.ANSI.reset())
                 |> IO.puts()
 
@@ -495,7 +511,7 @@ defmodule ServidorGV do
         nodoP = estado_sist.tentativa.primario
         nodoC = estado_sist.tentativa.copia
 
-        ((IO.ANSI.red() <> "Prim: #{nodoP}, Copia: #{nodoC}") <>
+        ((IO.ANSI.yellow() <> "Prim: #{nodoP}, Copia: #{nodoC}") <>
            IO.ANSI.reset())
         |> IO.puts()
 
@@ -512,26 +528,42 @@ defmodule ServidorGV do
         nodoP = estado_sist.tentativa.primario
         nodoC = estado_sist.tentativa.copia
 
-        ((IO.ANSI.red() <> "Prim: #{nodoP}, Copia: #{nodoC}") <>
+        ((IO.ANSI.yellow() <> "Prim: #{nodoP}, Copia: #{nodoC}") <>
            IO.ANSI.reset())
         |> IO.puts()
 
         promocionCopia(estado_sist)
       else
         # CRASH
-        ((IO.ANSI.red() <> "PRIMARIO y COPIA CAIDO################") <>
+        ((IO.ANSI.red() <> "+++++++++++++PRIMARIO y COPIA CAIDO+++++++++++++") <>
            IO.ANSI.reset())
         |> IO.puts()
 
-        %{
+        estado_sist=%{
           estado_sist
           | tentativa: %{
               estado_sist.tentativa
               | copia: :undefined,
                 primario: :undefined,
                 num_vista: 0
-            }
+            },
+            vista: %{
+              estado_sist.vista 
+              | copia: :undefined,
+                primario: :undefined,
+                num_vista: 0
+            },
+            primario_latido: 0,
+            copia_latido: 0
         }
+        ((IO.ANSI.red() <> "CAIDA MAQUINA") <>
+           IO.ANSI.reset())
+        |> IO.puts()
+      System.halt() 
+        ((IO.ANSI.red() <> "Valida: #{estado_sist.vista.primario}, #{estado_sist.vista.copia}\n Tent:#{estado_sist.tentativa.primario}, #{estado_sist.tentativa.copia} ") <>
+           IO.ANSI.reset())
+        |> IO.puts()
+        estado_sist
       end
 
     estado

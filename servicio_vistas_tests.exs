@@ -140,6 +140,7 @@ defmodule GestorVistasTest do
     primario_rearrancado(c1, c3, 5, ServidorGV.latidos_fallidos() * 2)
 
     comprobar_tentativa(c3, c3, c1, vista.num_vista)
+    IO.puts(" ... Superado")
   end
 
   ## Test 8 : Servidor de vistas espera a que primario confirme vista
@@ -148,7 +149,7 @@ defmodule GestorVistasTest do
   ##          - C3 no confirma vista en que es primario,
   ##          - Cae, pero C1 no es promocionado porque C3 no confimo !
   # primario_no_confirma_vista(C1, C2, C3),
-  # @tag :deshabilitado
+   #@tag :deshabilitado
   test "Primario no confirma vista", %{c1: c1, c2: c2, c3: c3} do
     IO.puts("Test8 : Primario no confirma vista...")
     primario_no_confirma_vista(c1, c2, c3)
@@ -159,7 +160,8 @@ defmodule GestorVistasTest do
   ##       un nuevo servidor sin inicializar no puede convertirse en primario.
   # sin_inicializar_no(C1, C2, C3),
   # @tag :deshabilitado
-  test "Nuevo nodo tras ambas caidas no es primario", %{c1: c1} do
+  test "Nuevo nodo tras ambas caidas no es primario", %{c2: c2, c3: c1} do
+
     IO.puts("Test9: Tras caida de primario y copia, el nuevo nodo no puede ser primario")
     sin_inicializar_no(c1, 0, ServidorGV.latidos_fallidos() * 2)
     comprobar_tentativa(c1, :undefined, :undefined, 0)
@@ -293,50 +295,30 @@ defmodule GestorVistasTest do
   end
 
   defp primario_no_confirma_vista(c1, c2, c3) do
-    {vista, _} = ClienteGV.latido(c3, 7)
+    #VALIDA: C1,C3, SIN NODOS
+    #TENTATIVA: C3,C1, 7
+    {vista, _} = ClienteGV.latido(c3,-1)
     IO.puts("ESTADO: #{vista.primario}, #{vista.copia}, #{vista.num_vista}")
-    # ahora mismo--> PRIMARIO: C3 --- COPIA: C1 --- NUM_VISTA:7
-    # nuevo nodo en espera
-    ClienteGV.latido(c2, 0)
-    # hacemos que caiga nodo1, es decir, cae copia
-    ClienteGV.latido(c1, 0)
-    # C2 PASA A COPIA
-    ClienteGV.latido(c3, vista.num_vista + 1)
-    # PRIMARIO CONFIRMA VALIDADA
-    comprobar_valida(c3, c3, c2, vista.num_vista + 1)
-    # cae copia
-    ClienteGV.latido(c2, 0)
-    # {vista, _} = ClienteGV.latido(c3, vista.num_vista+3) 
-    # si hacemos esto-> priamrio:c3, copia:undefined, vista=9
-    # deberia hacer lo de arriba, pero no lo hacemos para no confirmar y validar, de esta forma como no 
-    # validamos en tentativa copia es undefined y en valida es c2
-    comprobar_tentativa(c3, c3, :undefined, vista.num_vista + 2)
-
-    # haremos que caiga el primario
-    primario_cae(c3, vista.num_vista + 2, ServidorGV.latidos_fallidos() * 2)
-    comprobar_tentativa(c3, :undefined, :undefined, 0)
-    # IO.puts "ESTADO: #{vista.primario}, #{vista.copia}, #{vista.num_vista}" 
-  end
-
-  defp primario_cae(_, _, 0), do: :fin
-
-  defp primario_cae(c3, num_vista, x) do
-    {vista, _} = ClienteGV.latido(c3, 0)
-
-    if vista.primario != :undefined or vista.copia != :undefined do
-      Process.sleep(ServidorGV.intervalo_latidos())
-      primario_cae(c3, num_vista, x - 1)
-    end
+    #registramos un nodo en espera
+    ClienteGV.latido(c2,0)
+    #aqui tenemos la primaria desincronizada, es decir, no esta validado
+              #IO.puts("ESTADO: #{vista1.primario}, #{vista1.copia}, #{vista1.num_vista}")
+    #copia late pero el estado sigue sin estar confirmado
+    ClienteGV.latido(c1, vista.num_vista-1)
+    #tiramos primario y no está la vista validada
+    {vista3, _} = ClienteGV.latido(c3, 0) 
+    IO.puts("ESTADO: #{vista3.primario}, #{vista3.copia}, #{vista3.num_vista}")
+    comprobar_tentativa(c1, :undefined, :undefined, vista3.num_vista)
   end
 
   defp sin_inicializar_no(_, _, 0), do: :fin
 
-  defp sin_inicializar_no(c1, num_vista, x) do
-    {vista, _} = ClienteGV.latido(c1, 0)
+  defp sin_inicializar_no(nodo, num_vista, x) do
+    {vista, _} = ClienteGV.latido(nodo, 0)
 
     if vista.primario != :undefined or vista.copia != :undefined do
       Process.sleep(ServidorGV.intervalo_latidos())
-      sin_inicializar_no(c1, num_vista, x - 1)
+      sin_inicializar_no(nodo, num_vista, x - 1)
     end
   end
 
